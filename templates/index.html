@@ -1,0 +1,22 @@
+<html>
+<head>
+    <style>
+        body { font-family: arial; margin: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Candlesick Pattern Screener</h1>
+    
+    <form>
+        <select name="pattern">
+            {% for pattern in patterns %}
+                <option value="{{ pattern }}"> {{ patterns[pattern] }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="scan" />
+    </form>
+
+</body>
+</html>
+
+
