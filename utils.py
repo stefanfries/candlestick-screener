@@ -14,7 +14,7 @@ def get_sp500_symbols() -> pd.DataFrame:
     sp500_df.columns = ["Symbol", "Name"]
 
     # Optional: clean symbols for yfinance (some symbols like BRK.B need special handling)
-    sp500_df["Symbol"] = sp500_df["Symbol"].str.replace(".", "-", regex=False)
+    sp500_df.loc[:, "Symbol"] = sp500_df["Symbol"].str.replace(".", "-", regex=False)
 
     # Save to CSV
     sp500_df.to_csv("datasets/sp500_companies.csv", index=False)
