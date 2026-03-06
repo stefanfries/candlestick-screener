@@ -1,0 +1,14 @@
+[project]
+name = "candlestick-screener"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13.9"
+dependencies = [
+    "flask>=3.1.0",
+    "pandas>=2.2.3",
+    "ta-lib",
+    "yfinance>=0.2.55",
+]
+
+[tool.uv.sources]
+ta-lib = { path = "../../libs/TA-Lib/ta_lib-0.6.3-cp313-cp313-win_amd64.whl" }
