@@ -1,0 +1,145 @@
+<html>
+<head>
+    <style>
+        body { font-family: arial; margin: 20px; }
+        h2 { margin-top: 30px; }
+        .section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 4px; display: block; max-width: 600px; }
+        .section h3 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #666; }
+        select, input[type=submit] { padding: 6px 10px; font-size: 14px; margin-right: 8px; }
+        input[type=submit] { cursor: pointer; }
+        .btn-download { background-color: #4a90d9; color: white; border: none; border-radius: 3px; }
+        .btn-download:hover { background-color: #357abd; }
+        .btn-scan { background-color: #5cb85c; color: white; border: none; border-radius: 3px; }
+        .btn-scan:hover { background-color: #449d44; }
+        .bullish { background-color: #c8f7c5; }
+        .bearish { background-color: #f7c5c5; }
+        #snapshot-status { margin-top: 8px; font-size: 13px; color: #555; display: none; }
+        #download-progress-wrap { margin-top: 8px; display: none; }
+        #download-progress { width: 100%; height: 14px; }
+        #download-label { font-size: 12px; color: #555; margin-top: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Candlestick Pattern Screener</h1>
+
+    <div class="section">
+        <h3>1. Select Index &amp; Download Data</h3>
+        <select id="index-select" name="index">
+            {% for key, name in indices.items() %}
+                <option value="{{ key }}" {% if key == index_key %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" class="btn-download" value="Download Data" onclick="triggerSnapshot(event)" />
+        <div id="download-progress-wrap">
+            <progress id="download-progress" max="100" value="0"></progress>
+            <div id="download-label"></div>
+        </div>
+        <div id="snapshot-status"></div>
+    </div>
+
+    <div class="section">
+        <h3>2. Scan for Pattern</h3>
+        <form id="scan-form">
+            <input type="hidden" name="index" id="scan-index" value="{{ index_key }}" />
+            <select name="pattern">
+                {% for p in patterns %}
+                    <option value="{{ p }}" {% if p == pattern %}selected{% endif %}>{{ patterns[p] }}</option>
+                {% endfor %}
+            </select>
+            <input type="submit" class="btn-scan" value="Scan" />
+        </form>
+    </div>
+
+    {% if matches is defined %}
+        {% if matches %}
+            <h2>Matches for {{ patterns[pattern] }} &mdash; {{ indices[index_key] }}</h2>
+            <table border="1" cellpadding="5">
+                <tr>
+                    <th>Symbol</th>
+                    <th>Name</th>
+                    <th>Signal</th>
+                </tr>
+                {% for m in matches %}
+                    <tr class="{% if m.signal > 0 %}bullish{% else %}bearish{% endif %}">
+                        <td>{{ m.symbol }}</td>
+                        <td>{{ m.name }}</td>
+                        <td>{% if m.signal > 0 %}Bullish ({{ m.signal }}){% else %}Bearish ({{ m.signal }}){% endif %}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3">
+                            <img src="https://finviz.com/chart.ashx?t={{ m.symbol }}&ty=c&ta=1&p=d&s=l" alt="{{ m.symbol }} chart" />
+                        </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% elif pattern %}
+            <p>No matches found for {{ patterns[pattern] }} in {{ indices[index_key] }}.</p>
+        {% endif %}
+    {% endif %}
+
+    <script>
+        const indexSelect = document.getElementById("index-select");
+
+        // Keep the hidden scan-form index in sync with the index dropdown
+        indexSelect.addEventListener("change", function () {
+            document.getElementById("scan-index").value = this.value;
+        });
+
+        function triggerSnapshot(e) {
+            e.preventDefault();
+            const index = indexSelect.value;
+            const status = document.getElementById("snapshot-status");
+            const progressWrap = document.getElementById("download-progress-wrap");
+            const progressBar = document.getElementById("download-progress");
+            const label = document.getElementById("download-label");
+
+            // Reset UI
+            status.style.display = "none";
+            status.textContent = "";
+            progressWrap.style.display = "block";
+            progressBar.value = 0;
+            label.textContent = "Connecting...";
+
+            const es = new EventSource("/snapshot/stream?index=" + index);
+
+            es.onmessage = function (event) {
+                const d = JSON.parse(event.data);
+                if (d.type === "progress") {
+                    const pct = Math.round((d.current / d.total) * 100);
+                    progressBar.value = pct;
+                    label.textContent = d.symbol + " — " + d.current + " / " + d.total + " (" + pct + "%)";
+                } else if (d.type === "done") {
+                    es.close();
+                    progressBar.value = 100;
+                    progressWrap.style.display = "none";
+                    status.style.display = "block";
+                    if (d.failed && d.failed.length > 0) {
+                        status.textContent = "Download complete. Failed: " + d.failed.join(", ");
+                    } else {
+                        status.textContent = "Download complete.";
+                    }
+                } else if (d.type === "skipped") {
+                    es.close();
+                    progressWrap.style.display = "none";
+                    status.style.display = "block";
+                    status.textContent = "Skipped: " + d.reason;
+                } else if (d.type === "error") {
+                    es.close();
+                    progressWrap.style.display = "none";
+                    status.style.display = "block";
+                    status.textContent = "Error: " + d.message;
+                }
+            };
+
+            es.onerror = function () {
+                es.close();
+                progressWrap.style.display = "none";
+                status.style.display = "block";
+                status.textContent = "Connection error during download.";
+            };
+        }
+    </script>
+</body>
+</html>
+
+
